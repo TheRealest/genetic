@@ -1,9 +1,12 @@
-CONSTANTS = require '../constants'
-
 # Dna class which maintains its genes and can perform crossover, mutation, and
 # fitness calculation.
 
 module.exports = class Dna
+  # Genes which this Dna operate on
+  genes: null
+  # Fitness of current genes
+  fitness: 0
+
   # If no genes are passed in the Dna will automatically generate them using
   # the generateGenes function; genes can be any data structure
   constructor: (@genes) ->
