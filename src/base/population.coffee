@@ -1,4 +1,5 @@
 Dna = require './dna'
+Random = require '../util/random'
 CONSTANTS = require '../constants'
 
 # Population class which manages each of its member Dna instances. It can
@@ -9,13 +10,17 @@ CONSTANTS = require '../constants'
 module.exports = class Population
   # Array of member Dna instances with length CONSTANTS.POPULATION_SIZE
   members: []
+  # Random number generator for this class, shared by all instances
+  random: new Random
   # Generation number, incremented every time @evolve is called
-  generationNumber: 0
+  generationNumber: 1
   # Member Dna with the maximum fitness
   maxFitnessMember: null
   # Flag which indicates whether a member of the population has reached the
   # goal fitness yet
   finished: false
+  # Flag which indicates the population ended early unsuccessfully
+  endedEarly: false
 
   # If no array of member Dna instances is passed in the Population will
   # automatically generate it using the generateMembers function
@@ -25,13 +30,10 @@ module.exports = class Population
     @generateMembers() unless @members.length
     @calculateFitness()
 
-  # Randomly generate member Dna instances and store them in @members
+  # Randomly generate member Dna instances and store them in @members -- should
+  # be overwritten by Population subclass
   generateMembers: ->
-    newMembers = []
-    for index in [0...CONSTANTS.POPULATION_SIZE]
-      newMembers.push new Dna
-
-    @members = newMembers
+    @members = []
 
   # Calculate fitness for each member and keep track of the member with
   # greatest fitness
@@ -64,11 +66,30 @@ module.exports = class Population
     @generationNumber++
 
     @calculateFitness()
-    @finished = true if @maxFitnessMember.fitness >= CONSTANTS.GOAL_FITNESS
+    @finished = @isFinished()
 
-  # Select a member from the current population using a weighted random
-  # selection process based on fitness; requires that the fitness of each Dna
-  # is up to date i.e. calculateFitness has been called since any changes to
-  # its genes
+  # Method used to select members from the population when performing the
+  # evolution step -- requires that fitness has been calculated since any
+  # changes to members or their genes. By default it simply chooses one member
+  # at weighted random based on fitness, but can be overwritten by the
+  # Population subclass to implement a specific selection strategy
   selectMember: ->
-    return
+    weightedMembers = for member in @members
+      {weight: member.fitness, value: member}
+    return @random.fromWeightedArray weightedMembers
+
+  # Method for determining if the evolution process is "done" -- requires that
+  # fitness has been calculated since any changes to members or their genes.
+  # May need to be overwritten depending on the specific implementation.
+  isFinished: ->
+    if @generationNumber < CONSTANTS.MAX_GENERATION
+      return @maxFitnessMember.fitness >= CONSTANTS.GOAL_FITNESS
+    else
+      @endEarly()
+      return true
+
+  # Should be overwritten by the Population subclass to print information about
+  # the state of the population in case MAX_GENERATION is reached without
+  # finishing normally
+  endEarly: ->
+    @endedEarly = true

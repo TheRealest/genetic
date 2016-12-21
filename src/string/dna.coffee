@@ -16,7 +16,7 @@ module.exports = class StringDna extends Dna
   genes: []
   # Fitness of current genes
   fitness: 0
-  # Random number generator for this instance
+  # Random number generator for this class, shared by all instances
   random: new Random
 
   # If no genes are passed in the Dna will automatically generate them using
@@ -24,7 +24,8 @@ module.exports = class StringDna extends Dna
   constructor: (@goalString = '', @genes, @seed = @random.realUnit()) ->
     super @genes
 
-  # Randomly generate genes and store them in @genes
+  # Randomly generate characters with the same length as the goalString and
+  # store them in @genes
   generateGenes: ->
     newGenes = []
     for index in [0...@goalString.length]
@@ -32,24 +33,59 @@ module.exports = class StringDna extends Dna
 
     @genes = newGenes
 
-  # Calculate current fitness and store it in @fitness
+  # Fitness is calculated by comparing the genes to the goalString
+  # character-wise -- each match adds one to the fitness, to a maximum of
+  # goalString.length
   calculateFitness: ->
     newFitness = 0
     goalGenes = @goalString.split ''
-    console.log goalGenes
     for character, index in @genes
-      console.log character, goalGenes[index]
       newFitness++ if character == goalGenes[index]
     return @fitness = newFitness
 
-  # Perform crossover with another Dna instance, producing a new Dna instance
-  # with some genes from both parent Dnas
+  # Delegates to one of three crossover strategies: _crossoverCharacterWise or
+  # _crossoverSplitFixed, _crossoverSplitRandom
   crossover: (otherDna) ->
-    return new Dna @genes
+    #return @_crossoverCharacterWise otherDna
+    return @_crossoverSplitFixed otherDna
+    #return @_crossoverSplitRandom otherDna
 
-  # Perform mutation, replacing some genes with new, random ones
+  # Each character is considered independently and has a 50/50 chance to be
+  # taken from either parent
+  _crossoverCharacterWise: (otherDna) ->
+    newGenes = []
+    for character, index in @genes
+      otherCharacter = otherDna.genes[index]
+      newGenes.push if @random.boolean() then character else otherCharacter
+    return new StringDna @goalString, newGenes
+
+  # The genes from one parent up to a fixed point are combined with the genes
+  # from the other parent after that fixed point to create the new Dna --
+  # defaults to the midpoint
+  _crossoverSplitFixed: (otherDna, splitPoint) ->
+    splitPoint ?= Math.floor(@genes.length / 2)
+    newGenes = []
+    for index in [0...@genes.length]
+      newGenes.push if index < splitPoint
+        @genes[index]
+      else
+        otherDna.genes[index]
+    return new StringDna @goalString, newGenes
+
+  # Same as _crossoverSplitFixed except the split point is randomly chosen
+  _crossoverSplitRandom: (otherDna) ->
+    return _crossoverSplitFixed otherDna, @random.integerFromRange(@genes.length + 1)
+
+  # Each character is replaced with a new random character at a rate of
+  # CONSTANTS.MUTATION_RATE
   mutate: ->
-    return @
+    newGenes = []
+    for character, index in @genes
+      newGenes.push if @random.boolean CONSTANTS.MUTATION_RATE
+        @generateRandomCharacter()
+      else
+        character
+    return new StringDna @goalString, newGenes
 
   # Return a random character in the range a-zA-Z plus space
   generateRandomCharacter: ->
